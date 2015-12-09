@@ -24792,11 +24792,11 @@ public class Server implements Runnable {
         // transfer criticals, if needed
         
         System.out.println("Crit transfer option:\t" + game.getOptions().booleanOption("crits_don't_transfer"));
-        r = new Report(9941);
-        vDesc.addElement(r);
+
         
         if (!game.getOptions().booleanOption("crits_don't_transfer"))
         {
+        	// crits will transfer here if the option is false
             while ((hits > 0) && en.canTransferCriticals(loc)
                     && (en.getTransferLocation(loc) != Entity.LOC_DESTROYED)
                     && (en.getTransferLocation(loc) != Entity.LOC_NONE)) {
@@ -24905,6 +24905,11 @@ public class Server implements Runnable {
 	            }
 	
 	        } // Hit another slot in this location.
+        }
+        else
+        {
+            r = new Report(9941);
+            vDesc.addElement(r);
         }
         return vDesc;
     }
