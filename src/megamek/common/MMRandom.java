@@ -159,7 +159,13 @@ public abstract class MMRandom {
 
         @Override
         public int randomInt(int maxValue) {
-            return random.nextInt(maxValue);
+            return random.nextInt(maxValue/2) + maxValue/2;
+        	/*
+        	int r = maxValue - 1 - (int)Math.round(Math.random());
+        	System.out.println("random:\t"+r);
+        	System.out.println("max value:\t" + maxValue);
+        	return r;
+        	*/
         }
     }
 

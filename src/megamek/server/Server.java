@@ -9922,6 +9922,7 @@ public class Server implements Runnable {
                     if (remainingAV <= 0) {
                         minesweeper.setDestroyed(true);
                     }
+                    
                     // Check for damage transfer
                     if (remainingAV < 0) {
                         int damage = Math.abs(remainingAV);
@@ -9940,6 +9941,7 @@ public class Server implements Runnable {
                         }
                         vMineReport.addAll(damageReports);
                     }
+                    
                     Report.addNewline(vMineReport);
                     // If the minefield is cleared, we're done processing it
                     continue;
@@ -24788,115 +24790,122 @@ public class Server implements Runnable {
         }
 
         // transfer criticals, if needed
-        while ((hits > 0) && en.canTransferCriticals(loc)
-               && (en.getTransferLocation(loc) != Entity.LOC_DESTROYED)
-               && (en.getTransferLocation(loc) != Entity.LOC_NONE)) {
-            loc = en.getTransferLocation(loc);
-            r = new Report(6335);
-            r.subject = en.getId();
-            r.indent(3);
-            r.add(en.getLocationAbbr(loc));
-            vDesc.addElement(r);
+        
+        System.out.println("Crit transfer option:\t" + game.getOptions().booleanOption("crits_don't_transfer"));
+        r = new Report(9941);
+        vDesc.addElement(r);
+        
+        if (!game.getOptions().booleanOption("crits_don't_transfer"))
+        {
+            while ((hits > 0) && en.canTransferCriticals(loc)
+                    && (en.getTransferLocation(loc) != Entity.LOC_DESTROYED)
+                    && (en.getTransferLocation(loc) != Entity.LOC_NONE)) {
+                 loc = en.getTransferLocation(loc);
+                 r = new Report(6335);
+                 r.subject = en.getId();
+                 r.indent(3);
+                 r.add(en.getLocationAbbr(loc));
+                 vDesc.addElement(r);
+             }
+	        
+	        // Roll critical hits in this location.
+	        while (hits > 0) {
+	
+	            // Have we hit all available slots in this location?
+	            if (en.getHittableCriticals(loc) <= 0) {
+	                r = new Report(6340);
+	                r.subject = en.getId();
+	                r.indent(3);
+	                vDesc.addElement(r);
+	                break;
+	            }
+	
+	            // Randomly pick a slot to be hit.
+	            int slotIndex = Compute.randomInt(en.getNumberOfCriticals(loc));
+	            slot = en.getCritical(loc, slotIndex);
+	
+	            // Ignore empty or unhitable slots (this
+	            // includes all previously hit slots).
+	
+	            if ((slot != null) && slot.isHittable()) {
+	
+	                if (slot.isArmored()) {
+	                    r = new Report(6710);
+	                    r.subject = en.getId();
+	                    if (slot.getType() == CriticalSlot.TYPE_SYSTEM) {
+	                        // Pretty sure that only 'mechs have system crits,
+	                        // but just in case....
+	                        if (en instanceof Mech) {
+	                            r.add(((Mech) en).getSystemName(slot.getIndex()));
+	                        }
+	                    } else {
+	                        // Shouldn't be null, but we'll be careful...
+	                        if (slot.getMount() != null) {
+	                            r.add(slot.getMount().getName());
+	                        }
+	                    }
+	                    vDesc.addElement(r);
+	                    slot.setArmored(false);
+	                    hits--;
+	                    continue;
+	                }
+	                // if explosive use edge
+	                if ((en instanceof Mech)
+	                    && (en.getCrew().hasEdgeRemaining() && en.getCrew()
+	                                                             .getOptions()
+	                                                             .booleanOption("edge_when_explosion"))
+	                    && (slot.getType() == CriticalSlot.TYPE_EQUIPMENT)
+	                    && slot.getMount().getType()
+	                           .isExplosive(slot.getMount())) {
+	                    en.getCrew().decreaseEdge();
+	                    r = new Report(6530);
+	                    r.subject = en.getId();
+	                    r.indent(3);
+	                    r.add(en.getCrew().getOptions().intOption("edge"));
+	                    vDesc.addElement(r);
+	                    continue;
+	                }
+	
+	                // check for reactive armor
+	                if (en.getArmorType(loc) == EquipmentType.T_ARMOR_REACTIVE) {
+	                    Mounted mount = en.getEquipment(slot.getIndex());
+	                    if ((mount != null)
+	                        && (mount.getType() instanceof MiscType)
+	                        && ((MiscType) mount.getType())
+	                            .hasFlag(MiscType.F_REACTIVE)) {
+	                        int roll = Compute.d6(2);
+	                        r = new Report(6082);
+	                        r.subject = en.getId();
+	                        r.indent(3);
+	                        r.newlines = 0;
+	                        r.add(roll);
+	                        vDesc.addElement(r);
+	                        // big budda boom
+	                        if (roll == 2) {
+	                            r = new Report(6083);
+	                            r.subject = en.getId();
+	                            r.indent(3);
+	                            vDesc.addElement(r);
+	                            vDesc.addElement(r);
+	                            vDesc.addAll(damageEntity(en, new HitData(loc),
+	                                                      en.getArmor(loc)));
+	                            if (en.hasRearArmor(loc)) {
+	                                vDesc.addAll(damageEntity(en, new HitData(loc,
+	                                                                          true), en.getArmor(loc, true)));
+	                            }
+	                            vDesc.addAll(damageEntity(en, new HitData(loc), 1));
+	                        } else {
+	                            continue;
+	                        }
+	                    }
+	                }
+	                vDesc.addAll(applyCriticalHit(en, loc, slot, true, damage,
+	                                              isCapital));
+	                hits--;
+	            }
+	
+	        } // Hit another slot in this location.
         }
-
-        // Roll critical hits in this location.
-        while (hits > 0) {
-
-            // Have we hit all available slots in this location?
-            if (en.getHittableCriticals(loc) <= 0) {
-                r = new Report(6340);
-                r.subject = en.getId();
-                r.indent(3);
-                vDesc.addElement(r);
-                break;
-            }
-
-            // Randomly pick a slot to be hit.
-            int slotIndex = Compute.randomInt(en.getNumberOfCriticals(loc));
-            slot = en.getCritical(loc, slotIndex);
-
-            // Ignore empty or unhitable slots (this
-            // includes all previously hit slots).
-
-            if ((slot != null) && slot.isHittable()) {
-
-                if (slot.isArmored()) {
-                    r = new Report(6710);
-                    r.subject = en.getId();
-                    if (slot.getType() == CriticalSlot.TYPE_SYSTEM) {
-                        // Pretty sure that only 'mechs have system crits,
-                        // but just in case....
-                        if (en instanceof Mech) {
-                            r.add(((Mech) en).getSystemName(slot.getIndex()));
-                        }
-                    } else {
-                        // Shouldn't be null, but we'll be careful...
-                        if (slot.getMount() != null) {
-                            r.add(slot.getMount().getName());
-                        }
-                    }
-                    vDesc.addElement(r);
-                    slot.setArmored(false);
-                    hits--;
-                    continue;
-                }
-                // if explosive use edge
-                if ((en instanceof Mech)
-                    && (en.getCrew().hasEdgeRemaining() && en.getCrew()
-                                                             .getOptions()
-                                                             .booleanOption("edge_when_explosion"))
-                    && (slot.getType() == CriticalSlot.TYPE_EQUIPMENT)
-                    && slot.getMount().getType()
-                           .isExplosive(slot.getMount())) {
-                    en.getCrew().decreaseEdge();
-                    r = new Report(6530);
-                    r.subject = en.getId();
-                    r.indent(3);
-                    r.add(en.getCrew().getOptions().intOption("edge"));
-                    vDesc.addElement(r);
-                    continue;
-                }
-
-                // check for reactive armor
-                if (en.getArmorType(loc) == EquipmentType.T_ARMOR_REACTIVE) {
-                    Mounted mount = en.getEquipment(slot.getIndex());
-                    if ((mount != null)
-                        && (mount.getType() instanceof MiscType)
-                        && ((MiscType) mount.getType())
-                            .hasFlag(MiscType.F_REACTIVE)) {
-                        int roll = Compute.d6(2);
-                        r = new Report(6082);
-                        r.subject = en.getId();
-                        r.indent(3);
-                        r.newlines = 0;
-                        r.add(roll);
-                        vDesc.addElement(r);
-                        // big budda boom
-                        if (roll == 2) {
-                            r = new Report(6083);
-                            r.subject = en.getId();
-                            r.indent(3);
-                            vDesc.addElement(r);
-                            vDesc.addElement(r);
-                            vDesc.addAll(damageEntity(en, new HitData(loc),
-                                                      en.getArmor(loc)));
-                            if (en.hasRearArmor(loc)) {
-                                vDesc.addAll(damageEntity(en, new HitData(loc,
-                                                                          true), en.getArmor(loc, true)));
-                            }
-                            vDesc.addAll(damageEntity(en, new HitData(loc), 1));
-                        } else {
-                            continue;
-                        }
-                    }
-                }
-                vDesc.addAll(applyCriticalHit(en, loc, slot, true, damage,
-                                              isCapital));
-                hits--;
-            }
-
-        } // Hit another slot in this location.
-
         return vDesc;
     }
 

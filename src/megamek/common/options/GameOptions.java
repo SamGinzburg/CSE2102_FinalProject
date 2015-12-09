@@ -147,7 +147,7 @@ public class GameOptions extends AbstractOptions {
         addOption(advancedRules, "geometric_mean_bv", false); //$NON-NLS-1$\
         addOption(advancedRules, "reduced_overheat_modifier_bv", false); //$NON-NLS-1$
         addOption(advancedRules, "alternate_pilot_bv_mod", false); //$NON-NLS-1$
-        addOption(advancedRules, "crit_transfer", false); //$NON-NLS-1$
+        addOption(advancedRules, "crits_don't_transfer", false); //$NON-NLS-1$
         
         IBasicOptionGroup advancedCombat = addGroup("advancedCombat"); //$NON-NLS-1$
         addOption(advancedCombat, "tacops_ams", false); //$NON-NLS-1$

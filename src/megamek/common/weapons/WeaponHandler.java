@@ -973,6 +973,7 @@ public class WeaponHandler implements AttackHandler, Serializable {
         if (bDirect) {
             hit.makeDirectBlow(toHit.getMoS() / 3);
         }
+        
         // A building may be damaged, even if the squad is not.
         if (bldgAbsorbs > 0) {
             int toBldg = Math.min(bldgAbsorbs, nDamage);
